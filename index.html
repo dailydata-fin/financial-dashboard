@@ -23,23 +23,6 @@
             border-radius: 8px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
-        .api-key-section {
-            margin-bottom: 20px;
-            background-color: #eaf2f8;
-            padding: 15px;
-            border-radius: 5px;
-            border: 1px solid #aed6f1;
-        }
-        .api-key-section label {
-            font-weight: bold;
-            margin-right: 10px;
-        }
-        .api-key-section input {
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            width: 300px;
-        }
         .function-menu button {
             display: block;
             width: 100%;
@@ -93,11 +76,6 @@
     <div class="container">
         <h1>GitHub Pages Stock Screener</h1>
 
-        <div class="api-key-section">
-            <label for="apiKey">Your FMP API Key:</label>
-            <input type="text" id="apiKey" placeholder="Get a free key from financialmodelingprep.com">
-        </div>
-
         <h2>Functions</h2>
         <div class="function-menu">
             <button onclick="runFunction1()">1. Find Stocks 15% Below 20-Day SMA</button>
@@ -127,6 +105,23 @@
         function formatPercentage(num) {
             if (num === null || isNaN(num)) return 'N/A';
             return `${(num * 100).toFixed(2)}%`;
+        }
+        
+        /**
+         * Fetches the API key from a local file.
+         */
+        async function getApiKey() {
+            try {
+                const response = await fetch('api_key.txt');
+                if (!response.ok) {
+                    throw new Error('Could not load api_key.txt');
+                }
+                const apiKey = await response.text();
+                return apiKey.trim();
+            } catch (error) {
+                console.error('Failed to get API key:', error);
+                throw error;
+            }
         }
 
         /**
@@ -225,19 +220,21 @@
          * Main function for feature #1.
          */
         async function runFunction1() {
-            const apiKey = document.getElementById('apiKey').value.trim();
-            if (!apiKey) {
-                alert('Please enter your Financial Modeling Prep API key.');
-                return;
-            }
-
             const statusDiv = document.getElementById('status');
             const resultsContainer = document.getElementById('results-container');
-            
-            statusDiv.textContent = '1. Reading ticker list...';
             resultsContainer.innerHTML = '';
-
+            
             try {
+                statusDiv.textContent = '1. Reading API key...';
+                const apiKey = await getApiKey();
+                if (!apiKey) {
+                    alert('API key is missing or could not be loaded from api_key.txt.');
+                    statusDiv.textContent = 'Error: API key not found.';
+                    return;
+                }
+
+                statusDiv.textContent = '2. Reading ticker list...';
+                
                 // 1. Read tickers from the file
                 const response = await fetch('ticker-list.txt');
                 if (!response.ok) throw new Error('Could not load ticker-list.txt');
@@ -245,27 +242,26 @@
                 const text = await response.text();
                 const tickers = text.split('\n').map(t => t.trim()).filter(t => t.length > 0);
 
-                statusDiv.textContent = `2. Found ${tickers.length} tickers. Fetching financial data... (This may take a moment)`;
+                statusDiv.textContent = `3. Found ${tickers.length} tickers. Fetching financial data... (This may take a moment)`;
 
                 // 2. Fetch data for all tickers concurrently
                 const dataPromises = tickers.map(ticker => fetchStockData(ticker, apiKey));
                 const allData = await Promise.all(dataPromises);
 
-                statusDiv.textContent = '3. Analyzing data and filtering results...';
+                statusDiv.textContent = '4. Analyzing data and filtering results...';
                 
                 const filteredStocks = [];
                 allData.forEach(stock => {
                     if (stock && stock.price && stock.sma20) {
                         const delta = (stock.price - stock.sma20) / stock.sma20;
                         // Filter condition: price is 15% or more BELOW the 20-day SMA
-                        //if (delta <= -0.15) {
-                        if (delta <= -0.01) {
+                        if (delta <= -0.15) {
                             filteredStocks.push(stock);
                         }
                     }
                 });
                 
-                // 4. Display the results
+                // 5. Display the results
                 statusDiv.textContent = `Analysis complete. Found ${filteredStocks.length} matching stocks.`;
                 displayResults(filteredStocks);
 
@@ -278,4 +274,3 @@
 
 </body>
 </html>
-
