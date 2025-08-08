@@ -3,59 +3,277 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Stock Chart</title>
-    <!-- 
-      This style block is important. It ensures the chart can fill the entire screen.
-      - We remove the default margin/padding from the browser.
-      - We set the height of the html and body to 100% so the widget's "height: 100%" has a reference.
-      - We hide overflow to prevent scrollbars from appearing.
-      - We set a background color to match the widget's theme for a seamless loading experience.
-    -->
+    <title>Stock Screener</title>
     <style>
-      html, body {
-        height: 100%;
-        width: 100%;
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-        background-color: #0F0F0F;
-      }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #f4f4f9;
+            color: #333;
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+        h1, h2 {
+            color: #2c3e50;
+        }
+        .container {
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .api-key-section {
+            margin-bottom: 20px;
+            background-color: #eaf2f8;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #aed6f1;
+        }
+        .api-key-section label {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .api-key-section input {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 300px;
+        }
+        .function-menu button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            text-align: left;
+        }
+        .function-menu button:hover {
+            background-color: #2980b9;
+        }
+        .function-menu button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        #status {
+            margin-top: 20px;
+            font-weight: bold;
+            color: #e67e22;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+        th {
+            background-color: #ecf0f1;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .delta-negative {
+            color: #c0392b;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
 
-    <!-- TradingView Widget BEGIN -->
-    <div class="tradingview-widget-container" style="height:100%;width:100%">
-      <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
-      <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/symbols/NASDAQ-AAPL/?exchange=NASDAQ" rel="noopener nofollow" target="_blank"><span class="blue-text">AAPL chart by TradingView</span></a></div>
-      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
-      {
-      "allow_symbol_change": true,
-      "calendar": false,
-      "details": false,
-      "hide_side_toolbar": true,
-      "hide_top_toolbar": false,
-      "hide_legend": false,
-      "hide_volume": false,
-      "hotlist": false,
-      "interval": "D",
-      "locale": "en",
-      "save_image": true,
-      "style": "1",
-      "symbol": "NASDAQ:AAPL",
-      "theme": "dark",
-      "timezone": "Etc/UTC",
-      "backgroundColor": "#0F0F0F",
-      "gridColor": "rgba(242, 242, 242, 0.06)",
-      "watchlist": [],
-      "withdateranges": false,
-      "compareSymbols": [],
-      "studies": [],
-      "autosize": true
-    }
-      </script>
+    <div class="container">
+        <h1>GitHub Pages Stock Screener</h1>
+
+        <div class="api-key-section">
+            <label for="apiKey">Your FMP API Key:</label>
+            <input type="text" id="apiKey" placeholder="Get a free key from financialmodelingprep.com">
+        </div>
+
+        <h2>Functions</h2>
+        <div class="function-menu">
+            <button onclick="runFunction1()">1. Find Stocks 15% Below 20-Day SMA</button>
+            <button disabled>2. (Not Implemented)</button>
+            <button disabled>3. (Not Implemented)</button>
+            <button disabled>4. (Not Implemented)</button>
+            <button disabled>5. (Not Implemented)</button>
+            <button disabled>6. (Not Implemented)</button>
+            <button disabled>7. (Not Implemented)</button>
+            <button disabled>8. (Not Implemented)</button>
+            <button disabled>9. (Not Implemented)</button>
+        </div>
+
+        <div id="status"></div>
+        <div id="results-container"></div>
     </div>
-    <!-- TradingView Widget END -->
+
+    <script>
+        const API_BASE_URL = 'https://financialmodelingprep.com/api/v3';
+
+        // --- Helper function to format numbers ---
+        function formatNumber(num) {
+            if (num === null || isNaN(num)) return 'N/A';
+            return num.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+        }
+
+        function formatPercentage(num) {
+            if (num === null || isNaN(num)) return 'N/A';
+            return `${(num * 100).toFixed(2)}%`;
+        }
+
+        /**
+         * Fetches all required data for a single stock ticker.
+         * It makes three API calls concurrently for efficiency.
+         */
+        async function fetchStockData(ticker, apiKey) {
+            const quoteUrl = `${API_BASE_URL}/quote/${ticker}?apikey=${apiKey}`;
+            const smaUrl = `${API_BASE_URL}/technical_indicator/daily/${ticker}?period=20&type=sma&apikey=${apiKey}`;
+            const growthUrl = `${API_BASE_URL}/financial-growth/${ticker}?period=annual&limit=1&apikey=${apiKey}`;
+
+            try {
+                // Fetch all endpoints in parallel
+                const [quoteRes, smaRes, growthRes] = await Promise.all([
+                    fetch(quoteUrl),
+                    fetch(smaUrl),
+                    fetch(growthUrl)
+                ]);
+
+                // Check for failed requests
+                if (!quoteRes.ok || !smaRes.ok || !growthRes.ok) {
+                    console.error(`Error fetching data for ${ticker}. Status: ${quoteRes.status}, ${smaRes.status}, ${growthRes.status}`);
+                    return null;
+                }
+
+                const [quoteData, smaData, growthData] = await Promise.all([
+                    quoteRes.json(),
+                    smaRes.json(),
+                    growthRes.json()
+                ]);
+
+                // Ensure data is not empty
+                if (!quoteData.length || !smaData.length || !growthData.length) {
+                    console.warn(`No data returned for ticker: ${ticker}`);
+                    return null;
+                }
+                
+                return {
+                    ticker: ticker,
+                    price: quoteData[0].price,
+                    sma20: smaData[0].sma,
+                    revenueGrowth: growthData[0].revenueGrowth,
+                    netIncome: growthData[0].netIncomeGrowth // Using Net Income Growth as "Profit" metric
+                };
+
+            } catch (error) {
+                console.error(`An error occurred while fetching data for ${ticker}:`, error);
+                return null;
+            }
+        }
+
+        /**
+         * Renders the final list of stocks in an HTML table.
+         */
+        function displayResults(stocks) {
+            const container = document.getElementById('results-container');
+            if (stocks.length === 0) {
+                container.innerHTML = `<p>No stocks found that meet the criteria.</p>`;
+                return;
+            }
+
+            let tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ticker</th>
+                            <th>Stock Price</th>
+                            <th>20 Day SMA</th>
+                            <th>Delta to SMA</th>
+                            <th>Revenue Growth (YoY)</th>
+                            <th>Net Income Growth (YoY)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            stocks.forEach(stock => {
+                const delta = ((stock.price - stock.sma20) / stock.sma20);
+                tableHTML += `
+                    <tr>
+                        <td><strong>${stock.ticker}</strong></td>
+                        <td>${formatNumber(stock.price)}</td>
+                        <td>${formatNumber(stock.sma20)}</td>
+                        <td class="delta-negative">${formatPercentage(delta)}</td>
+                        <td>${formatPercentage(stock.revenueGrowth)}</td>
+                        <td>${formatPercentage(stock.netIncome)}</td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += `</tbody></table>`;
+            container.innerHTML = tableHTML;
+        }
+
+        /**
+         * Main function for feature #1.
+         */
+        async function runFunction1() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                alert('Please enter your Financial Modeling Prep API key.');
+                return;
+            }
+
+            const statusDiv = document.getElementById('status');
+            const resultsContainer = document.getElementById('results-container');
+            
+            statusDiv.textContent = '1. Reading ticker list...';
+            resultsContainer.innerHTML = '';
+
+            try {
+                // 1. Read tickers from the file
+                const response = await fetch('ticker-list.txt');
+                if (!response.ok) throw new Error('Could not load ticker-list.txt');
+                
+                const text = await response.text();
+                const tickers = text.split('\n').map(t => t.trim()).filter(t => t.length > 0);
+
+                statusDiv.textContent = `2. Found ${tickers.length} tickers. Fetching financial data... (This may take a moment)`;
+
+                // 2. Fetch data for all tickers concurrently
+                const dataPromises = tickers.map(ticker => fetchStockData(ticker, apiKey));
+                const allData = await Promise.all(dataPromises);
+
+                statusDiv.textContent = '3. Analyzing data and filtering results...';
+                
+                const filteredStocks = [];
+                allData.forEach(stock => {
+                    if (stock && stock.price && stock.sma20) {
+                        const delta = (stock.price - stock.sma20) / stock.sma20;
+                        // Filter condition: price is 15% or more BELOW the 20-day SMA
+                        if (delta <= -0.15) {
+                            filteredStocks.push(stock);
+                        }
+                    }
+                });
+                
+                // 4. Display the results
+                statusDiv.textContent = `Analysis complete. Found ${filteredStocks.length} matching stocks.`;
+                displayResults(filteredStocks);
+
+            } catch (error) {
+                console.error('Function 1 failed:', error);
+                statusDiv.textContent = `Error: ${error.message}`;
+            }
+        }
+    </script>
 
 </body>
 </html>
