@@ -17,6 +17,13 @@
         h1, h2 {
             color: #2c3e50;
         }
+        h3 {
+            background-color: #3498db;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 25px;
+        }
         .container {
             background-color: #fff;
             padding: 25px;
@@ -79,7 +86,7 @@
         <h2>Functions</h2>
         <div class="function-menu">
             <button onclick="runFunction1()">1. Find Stocks 15% Below 20-Day SMA</button>
-            <button disabled>2. (Not Implemented)</button>
+            <button onclick="runFunction2()">2. Technical Signal Grouping (MACD)</button>
             <button disabled>3. (Not Implemented)</button>
             <button disabled>4. (Not Implemented)</button>
             <button disabled>5. (Not Implemented)</button>
@@ -96,7 +103,7 @@
     <script>
         const API_BASE_URL = 'https://financialmodelingprep.com/api/v3';
 
-        // --- Helper function to format numbers ---
+        // --- Helper functions to format numbers ---
         function formatNumber(num) {
             if (num === null || isNaN(num)) return 'N/A';
             return num.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
@@ -107,6 +114,11 @@
             return `${(num * 100).toFixed(2)}%`;
         }
         
+        function formatDecimal(num) {
+             if (num === null || isNaN(num)) return 'N/A';
+             return num.toFixed(4);
+        }
+
         /**
          * Fetches the API key from a local file.
          */
@@ -114,7 +126,7 @@
             try {
                 const response = await fetch('api_key.txt');
                 if (!response.ok) {
-                    throw new Error('Could not load api_key.txt');
+                    throw new Error('Could not load api_key.txt. Make sure the file exists and contains your API key.');
                 }
                 const apiKey = await response.text();
                 return apiKey.trim();
@@ -124,36 +136,29 @@
             }
         }
 
-        /**
-         * Fetches all required data for a single stock ticker.
-         * It makes three API calls concurrently for efficiency.
-         */
+        // --------------------------------------------------------------------------------
+        // --- FUNCTION 1: Stocks below SMA
+        // --------------------------------------------------------------------------------
+
         async function fetchStockData(ticker, apiKey) {
             const quoteUrl = `${API_BASE_URL}/quote/${ticker}?apikey=${apiKey}`;
             const smaUrl = `${API_BASE_URL}/technical_indicator/daily/${ticker}?period=20&type=sma&apikey=${apiKey}`;
             const growthUrl = `${API_BASE_URL}/financial-growth/${ticker}?period=annual&limit=1&apikey=${apiKey}`;
 
             try {
-                // Fetch all endpoints in parallel
                 const [quoteRes, smaRes, growthRes] = await Promise.all([
-                    fetch(quoteUrl),
-                    fetch(smaUrl),
-                    fetch(growthUrl)
+                    fetch(quoteUrl), fetch(smaUrl), fetch(growthUrl)
                 ]);
 
-                // Check for failed requests
                 if (!quoteRes.ok || !smaRes.ok || !growthRes.ok) {
                     console.error(`Error fetching data for ${ticker}. Status: ${quoteRes.status}, ${smaRes.status}, ${growthRes.status}`);
                     return null;
                 }
 
                 const [quoteData, smaData, growthData] = await Promise.all([
-                    quoteRes.json(),
-                    smaRes.json(),
-                    growthRes.json()
+                    quoteRes.json(), smaRes.json(), growthRes.json()
                 ]);
 
-                // Ensure data is not empty
                 if (!quoteData.length || !smaData.length || !growthData.length) {
                     console.warn(`No data returned for ticker: ${ticker}`);
                     return null;
@@ -164,61 +169,40 @@
                     price: quoteData[0].price,
                     sma20: smaData[0].sma,
                     revenueGrowth: growthData[0].revenueGrowth,
-                    netIncome: growthData[0].netIncomeGrowth // Using Net Income Growth as "Profit" metric
+                    netIncome: growthData[0].netIncomeGrowth
                 };
-
             } catch (error) {
                 console.error(`An error occurred while fetching data for ${ticker}:`, error);
                 return null;
             }
         }
 
-        /**
-         * Renders the final list of stocks in an HTML table.
-         */
         function displayResults(stocks) {
             const container = document.getElementById('results-container');
             if (stocks.length === 0) {
                 container.innerHTML = `<p>No stocks found that meet the criteria.</p>`;
                 return;
             }
-
             let tableHTML = `
                 <table>
                     <thead>
                         <tr>
-                            <th>Ticker</th>
-                            <th>Stock Price</th>
-                            <th>20 Day SMA</th>
-                            <th>Delta to SMA</th>
-                            <th>Revenue Growth (YoY)</th>
-                            <th>Net Income Growth (YoY)</th>
+                            <th>Ticker</th><th>Stock Price</th><th>20 Day SMA</th><th>Delta to SMA</th><th>Revenue Growth (YoY)</th><th>Net Income Growth (YoY)</th>
                         </tr>
                     </thead>
-                    <tbody>
-            `;
-
+                    <tbody>`;
             stocks.forEach(stock => {
                 const delta = ((stock.price - stock.sma20) / stock.sma20);
                 tableHTML += `
                     <tr>
-                        <td><strong>${stock.ticker}</strong></td>
-                        <td>${formatNumber(stock.price)}</td>
-                        <td>${formatNumber(stock.sma20)}</td>
-                        <td class="delta-negative">${formatPercentage(delta)}</td>
-                        <td>${formatPercentage(stock.revenueGrowth)}</td>
-                        <td>${formatPercentage(stock.netIncome)}</td>
-                    </tr>
-                `;
+                        <td><strong>${stock.ticker}</strong></td><td>${formatNumber(stock.price)}</td><td>${formatNumber(stock.sma20)}</td>
+                        <td class="delta-negative">${formatPercentage(delta)}</td><td>${formatPercentage(stock.revenueGrowth)}</td><td>${formatPercentage(stock.netIncome)}</td>
+                    </tr>`;
             });
-
             tableHTML += `</tbody></table>`;
             container.innerHTML = tableHTML;
         }
 
-        /**
-         * Main function for feature #1.
-         */
         async function runFunction1() {
             const statusDiv = document.getElementById('status');
             const resultsContainer = document.getElementById('results-container');
@@ -227,46 +211,167 @@
             try {
                 statusDiv.textContent = '1. Reading API key...';
                 const apiKey = await getApiKey();
-                if (!apiKey) {
-                    alert('API key is missing or could not be loaded from api_key.txt.');
-                    statusDiv.textContent = 'Error: API key not found.';
-                    return;
-                }
 
                 statusDiv.textContent = '2. Reading ticker list...';
-                
-                // 1. Read tickers from the file
                 const response = await fetch('ticker-list.txt');
                 if (!response.ok) throw new Error('Could not load ticker-list.txt');
-                
                 const text = await response.text();
                 const tickers = text.split('\n').map(t => t.trim()).filter(t => t.length > 0);
 
-                statusDiv.textContent = `3. Found ${tickers.length} tickers. Fetching financial data... (This may take a moment)`;
-
-                // 2. Fetch data for all tickers concurrently
+                statusDiv.textContent = `3. Found ${tickers.length} tickers. Fetching financial data...`;
                 const dataPromises = tickers.map(ticker => fetchStockData(ticker, apiKey));
                 const allData = await Promise.all(dataPromises);
 
                 statusDiv.textContent = '4. Analyzing data and filtering results...';
-                
-                const filteredStocks = [];
-                allData.forEach(stock => {
+                const filteredStocks = allData.filter(stock => {
                     if (stock && stock.price && stock.sma20) {
                         const delta = (stock.price - stock.sma20) / stock.sma20;
-                        // Filter condition: price is 15% or more BELOW the 20-day SMA
-                        if (delta <= -0.15) {
-                            filteredStocks.push(stock);
+                        return delta <= -0.15;
+                    }
+                    return false;
+                });
+                
+                statusDiv.textContent = `Analysis complete. Found ${filteredStocks.length} matching stocks.`;
+                displayResults(filteredStocks);
+            } catch (error) {
+                console.error('Function 1 failed:', error);
+                statusDiv.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        // --------------------------------------------------------------------------------
+        // --- FUNCTION 2: MACD Technical Signals
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Fetches the last 2 days of MACD data for a given ticker.
+         */
+        async function fetchMacdData(ticker, apiKey) {
+            // Using standard MACD parameters (12, 26, 9), which is the API default
+            const macdUrl = `${API_BASE_URL}/technical_indicator/daily/${ticker}?type=macd&apikey=${apiKey}`;
+            try {
+                const res = await fetch(macdUrl);
+                if (!res.ok) {
+                    console.error(`Error fetching MACD for ${ticker}. Status: ${res.status}`);
+                    return null;
+                }
+                const data = await res.json();
+                
+                // We need at least two data points (today and yesterday) to find a crossover
+                if (!data || data.length < 2) {
+                    console.warn(`Not enough MACD data for ${ticker}`);
+                    return null;
+                }
+                return {
+                    ticker: ticker,
+                    today: data[0],     // Most recent data point
+                    yesterday: data[1]  // Previous data point
+                };
+            } catch (error) {
+                console.error(`An error occurred while fetching MACD data for ${ticker}:`, error);
+                return null;
+            }
+        }
+
+        /**
+         * Renders the MACD signal groups into categorized tables.
+         */
+        function displayMacdResults(signals) {
+            const container = document.getElementById('results-container');
+            
+            const createTable = (title, stocks) => {
+                let html = `<h3>${title} (${stocks.length})</h3>`;
+                if (stocks.length === 0) {
+                    return html + '<p>No stocks found in this category.</p>';
+                }
+                html += `
+                    <table>
+                        <thead>
+                            <tr><th>Ticker</th><th>Date</th><th>MACD</th><th>Signal Line</th><th>Histogram</th></tr>
+                        </thead>
+                        <tbody>`;
+                stocks.forEach(stock => {
+                    html += `
+                        <tr>
+                            <td><strong>${stock.ticker}</strong></td><td>${stock.today.date}</td>
+                            <td>${formatDecimal(stock.today.macd)}</td><td>${formatDecimal(stock.today.macd_signal)}</td>
+                            <td>${formatDecimal(stock.today.macd_histogram)}</td>
+                        </tr>`;
+                });
+                html += `</tbody></table>`;
+                return html;
+            };
+
+            container.innerHTML = 
+                createTable('Bullish Crossover Signals', signals.bullishCrossover) +
+                createTable('Bearish Crossover Signals', signals.bearishCrossover) +
+                createTable('Continuing Bullish Momentum', signals.bullishMomentum) +
+                createTable('Continuing Bearish Momentum', signals.bearishMomentum);
+        }
+
+        /**
+         * Main function for feature #2.
+         */
+        async function runFunction2() {
+            const statusDiv = document.getElementById('status');
+            const resultsContainer = document.getElementById('results-container');
+            resultsContainer.innerHTML = '';
+            
+            try {
+                statusDiv.textContent = '1. Reading API key...';
+                const apiKey = await getApiKey();
+
+                statusDiv.textContent = '2. Reading ticker list...';
+                const response = await fetch('ticker-list.txt');
+                if (!response.ok) throw new Error('Could not load ticker-list.txt');
+                const text = await response.text();
+                const tickers = text.split('\n').map(t => t.trim()).filter(t => t.length > 0);
+
+                statusDiv.textContent = `3. Found ${tickers.length} tickers. Fetching MACD data... (This may take a moment)`;
+
+                const dataPromises = tickers.map(ticker => fetchMacdData(ticker, apiKey));
+                const allData = await Promise.all(dataPromises);
+
+                statusDiv.textContent = '4. Analyzing MACD signals...';
+                
+                const signals = {
+                    bullishCrossover: [], bearishCrossover: [],
+                    bullishMomentum: [], bearishMomentum: []
+                };
+
+                allData.forEach(stock => {
+                    if (!stock || !stock.today || !stock.yesterday) return;
+
+                    const { today, yesterday } = stock;
+                    
+                    // Condition for Bullish Crossover: MACD crosses ABOVE signal line
+                    const isBullishCrossover = yesterday.macd < yesterday.macd_signal && today.macd > today.macd_signal;
+                    // Condition for Bearish Crossover: MACD crosses BELOW signal line
+                    const isBearishCrossover = yesterday.macd > yesterday.macd_signal && today.macd < today.macd_signal;
+
+                    if (isBullishCrossover) {
+                        signals.bullishCrossover.push(stock);
+                    } else if (isBearishCrossover) {
+                        signals.bearishCrossover.push(stock);
+                    } else {
+                        // Condition for Continuing Bullish: MACD is above signal, and both are above zero.
+                        const isContinuingBullish = today.macd > today.macd_signal && today.macd > 0 && today.macd_signal > 0;
+                        // Condition for Continuing Bearish: MACD is below signal, and both are below zero.
+                        const isContinuingBearish = today.macd < today.macd_signal && today.macd < 0 && today.macd_signal < 0;
+
+                        if (isContinuingBullish) {
+                            signals.bullishMomentum.push(stock);
+                        } else if (isContinuingBearish) {
+                            signals.bearishMomentum.push(stock);
                         }
                     }
                 });
-                
-                // 5. Display the results
-                statusDiv.textContent = `Analysis complete. Found ${filteredStocks.length} matching stocks.`;
-                displayResults(filteredStocks);
+
+                statusDiv.textContent = `Analysis complete. Found ${signals.bullishCrossover.length} bullish crossovers and ${signals.bearishCrossover.length} bearish crossovers.`;
+                displayMacdResults(signals);
 
             } catch (error) {
-                console.error('Function 1 failed:', error);
+                console.error('Function 2 failed:', error);
                 statusDiv.textContent = `Error: ${error.message}`;
             }
         }
