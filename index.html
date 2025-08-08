@@ -258,7 +258,8 @@
                     if (stock && stock.price && stock.sma20) {
                         const delta = (stock.price - stock.sma20) / stock.sma20;
                         // Filter condition: price is 15% or more BELOW the 20-day SMA
-                        if (delta <= -0.15) {
+                        //if (delta <= -0.15) {
+                        if (delta <= -0.01) {
                             filteredStocks.push(stock);
                         }
                     }
@@ -277,3 +278,4 @@
 
 </body>
 </html>
+
