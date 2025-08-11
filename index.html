@@ -1,104 +1,69 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Market Intelligence — Large Cap & Sector Flows</title>
-    <link rel="stylesheet" href="style.css">
-    <!-- Chart.js for simple charting (CDN) -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Large Cap Stocks Screener</title>
+  <style>
+    body {
+      background-color: #131722;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .tradingview-widget-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+  </style>
 </head>
 <body>
-    <header>
-        <h1>Market Intelligence — Large Cap & Sector Flows</h1>
-        <button id="exportBtn">Export CSV</button>
-        <input type="text" placeholder="Search ticker or company..."/>
-    </header>
+  <h1>Top 10 Large Cap Company Tickers Screener</h1>
 
-    <main>
-        <section class="dashboard-grid">
-            <div class="card" id="sector-inflows">
-                <h2>Sector Inflows / Outflows</h2>
-                <canvas id="sectorChart" height="140"></canvas>
-                <div class="sector-summary">
-                    <div>
-                        <b>Top Inflow Sectors</b>
-                        <ul>
-                            <li>Technology: $3,208M</li>
-                            <li>Energy: $1,108M</li>
-                            <li>Healthcare: $500M</li>
-                        </ul>
-                    </div>
-                    <div>
-                        <b>Top Outflow Sectors</b>
-                        <ul>
-                            <li>Financials: -$800M</li>
-                            <li>Consumer Discretionary: -$120M</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
+  <!-- TradingView Widget BEGIN -->
+  <div class="tradingview-widget-container">
+    <div class="tradingview-widget-container__widget"></div>
+    <div class="tradingview-widget-copyright">
+      <a href="https://www.tradingview.com/screener/" rel="noopener nofollow" target="_blank">
+        <span class="blue-text">Screener by TradingView</span>
+      </a>
+    </div>
+    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-screener.js" async>
+    {
+      "symbolsGroups": [
+        {
+          "name": "Large Cap Stocks",
+          "symbols": [
+            {"name": "NASDAQ:AAPL", "displayName": "Apple"},
+            {"name": "NASDAQ:MSFT", "displayName": "Microsoft"},
+            {"name": "NASDAQ:NVDA", "displayName": "Nvidia"},
+            {"name": "NASDAQ:GOOG", "displayName": "Alphabet"},
+            {"name": "NASDAQ:AMZN", "displayName": "Amazon"},
+            {"name": "NASDAQ:META", "displayName": "Meta Platforms"},
+            {"name": "NASDAQ:TSLA", "displayName": "Tesla"},
+            {"name": "NYSE:BRK.B", "displayName": "Berkshire Hathaway"},
+            {"name": "NYSE:JPM", "displayName": "JPMorgan Chase"},
+            {"name": "NYSE:V", "displayName": "Visa"}
+          ]
+        }
+      ],
+      "showToolbar": true,
+      "defaultColumn": "overview",
+      "defaultScreen": "general",
+      "isTransparent": false,
+      "locale": "en",
+      "colorTheme": "dark",
+      "width": "100%",
+      "height": 550
+    }
+    </script>
+  </div>
+  <!-- TradingView Widget END -->
 
-            <div class="card" id="major-indices">
-                <h2>Major Indices & SMAs</h2>
-                <div class="indices-row">
-                    <div><span>SPX</span><canvas id="spxChart"></canvas><span>Latest: 4580.09</span></div>
-                    <div><span>NDX</span><canvas id="ndxChart"></canvas><span>Latest: 15896.54</span></div>
-                    <div><span>DJI</span><canvas id="djiChart"></canvas><span>Latest: 35952.72</span></div>
-                    <div><span>VIX</span><canvas id="vixChart"></canvas><span>Latest: 36.91</span></div>
-                </div>
-            </div>
-
-            <div class="card" id="session-leaders">
-                <h2>Session Leaders (Large Caps)</h2>
-                <table>
-                    <thead>
-                        <tr><th>Symbol</th><th>Name</th><th>Sector</th><th>Price</th><th>1D%</th><th>Signal</th></tr>
-                    </thead>
-                    <tbody>
-                        <tr><td>XOM</td><td>Exxon Mobil</td><td>Energy</td><td>296.06</td><td>0.56%</td><td>neutral</td></tr>
-                        <tr><td>AMZN</td><td>Amazon.com Inc.</td><td>Consumer Discretionary</td><td>197.24</td><td>0.36%</td><td>neutral</td></tr>
-                        <tr><td>MSFT</td><td>Microsoft Corp.</td><td>Technology</td><td>147.60</td><td>0.11%</td><td>neutral</td></tr>
-                        <tr><td>GOOGL</td><td>Alphabet Inc.</td><td>Communication Services</td><td>245.29</td><td>0.11%</td><td>Take profit</td></tr>
-                        <tr><td>AAPL</td><td>Apple Inc.</td><td>Technology</td><td>97.99</td><td>-0.38%</td><td>Take profit</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            <div class="card" id="session-losers">
-                <h2>Session Losers (Large Caps)</h2>
-                <table>
-                    <thead>
-                        <tr><th>Symbol</th><th>Name</th><th>Sector</th><th>Price</th><th>1D%</th><th>Signal</th></tr>
-                    </thead>
-                    <tbody>
-                        <tr><td>AAPL</td><td>Apple Inc.</td><td>Technology</td><td>97.99</td><td>-0.38%</td><td>Take profit</td></tr>
-                        <tr><td>GOOGL</td><td>Alphabet Inc.</td><td>Communication Services</td><td>245.29</td><td>0.11%</td><td>Take profit</td></tr>
-                        <tr><td>MSFT</td><td>Microsoft Corp.</td><td>Technology</td><td>147.60</td><td>0.11%</td><td>neutral</td></tr>
-                        <tr><td>AMZN</td><td>Amazon.com Inc.</td><td>Consumer Discretionary</td><td>197.24</td><td>0.36%</td><td>neutral</td></tr>
-                        <tr><td>XOM</td><td>Exxon Mobil</td><td>Energy</td><td>296.06</td><td>0.56%</td><td>neutral</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            <div class="card" id="investment-opportunities">
-                <h2>Opportunities & Profit-taking Candidates</h2>
-                <div>
-                    <b>Investment Opportunities</b>
-                    <p>No strong opportunities detected with current rules.</p>
-                </div>
-                <div>
-                    <b>Profit-taking Candidates</b>
-                    <ul>
-                        <li>AAPL — Apple Inc. <span>Signal: Take profit</span></li>
-                        <li>GOOGL — Alphabet Inc. <span>Signal: Take profit</span></li>
-                    </ul>
-                </div>
-            </div>
-        </section>
-    </main>
-    <footer>
-        <p>
-            Dashboard powered by <b>dailydata-fin</b> | For demonstration only
-        </p>
-    </footer>
-    <script src="main.js"></script>
 </body>
 </html>
